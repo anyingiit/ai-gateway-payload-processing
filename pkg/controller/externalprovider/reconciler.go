@@ -51,6 +51,7 @@ const (
 	tenantConfigName         = "default-tenant"
 	backendAnnotation        = "maas.opendatahub.io/payload-processing-type"
 	praxisBackend            = "praxis"
+	ippBackend               = "ipp"
 	tenantConfigPollInterval = 30 * time.Second
 )
 
@@ -269,7 +270,7 @@ func (r *Reconciler) setStatus(ctx context.Context, provider *inferencev1alpha1.
 }
 
 // A missing MaasTenantConfig is served by Praxis. For an existing config,
-// the payload-processing annotation is the namespace's serving selection.
+// only an explicit IPP selection gives IPP provider status ownership.
 func (r *Reconciler) statusOwnedByIPP(ctx context.Context, namespace string) (bool, error) {
 	installed, err := r.tenantConfigInstalled()
 	if err != nil {
@@ -286,7 +287,7 @@ func (r *Reconciler) statusOwnedByIPP(ctx context.Context, namespace string) (bo
 		}
 		return false, fmt.Errorf("get MaasTenantConfig for namespace %q: %w", namespace, err)
 	}
-	return config.GetAnnotations()[backendAnnotation] != praxisBackend, nil
+	return config.GetAnnotations()[backendAnnotation] == ippBackend, nil
 }
 
 // MapTenantConfigToProviders revisits every provider when namespace ownership changes.

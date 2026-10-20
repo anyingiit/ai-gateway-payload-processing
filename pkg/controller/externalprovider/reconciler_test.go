@@ -264,6 +264,38 @@ func TestTenantConfigCRDArrivesAfterStartup(t *testing.T) {
 	assert.Equal(t, 2, mapper.resets)
 }
 
+func TestStatusOwnedByIPPRequiresExplicitSelection(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		wantOwned   bool
+	}{
+		{name: "missing annotation"},
+		{name: "empty annotation", annotations: map[string]string{backendAnnotation: ""}},
+		{name: "praxis", annotations: map[string]string{backendAnnotation: praxisBackend}},
+		{name: "case variant", annotations: map[string]string{backendAnnotation: "IPP"}},
+		{name: "invalid value", annotations: map[string]string{backendAnnotation: "ippp"}},
+		{name: "future backend", annotations: map[string]string{backendAnnotation: "other"}},
+		{name: "ipp", annotations: map[string]string{backendAnnotation: ippBackend}, wantOwned: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ns := createNamespace(t)
+			config := &unstructured.Unstructured{}
+			config.SetGroupVersionKind(TenantConfigGVK)
+			config.SetName(tenantConfigName)
+			config.SetNamespace(ns)
+			config.SetAnnotations(tt.annotations)
+			require.NoError(t, k8sClient.Create(ctx, config))
+
+			owned, err := (&Reconciler{Client: k8sClient}).statusOwnedByIPP(ctx, ns)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantOwned, owned)
+		})
+	}
+}
+
 func TestReconcile_NoStatusWithoutTenantConfig(t *testing.T) {
 	ns := createNamespace(t)
 	createSecret(t, "key", ns)
